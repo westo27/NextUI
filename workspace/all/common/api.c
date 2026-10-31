@@ -3812,6 +3812,17 @@ FALLBACK_IMPLEMENTATION void PLAT_pollInput(void)
 	if (lid.has_lid && PLAT_lidChanged(NULL))
 		pad.just_released |= BTN_SLEEP;
 }
+FALLBACK_IMPLEMENTATION int PLAT_isFnSwitchEngaged(void)
+{
+	return InitializedSettings() ? GetMute() : 0;
+}
+
+// Fn switch sleep lock: switch on means the device should be asleep
+static int PWR_fnSwitchLocked(void)
+{
+	return CFG_getFnSwitchLock() && PLAT_isFnSwitchEngaged();
+}
+
 FALLBACK_IMPLEMENTATION int PLAT_shouldWake(void)
 {
 	int lid_open = 1; // assume open by default
@@ -4257,6 +4268,8 @@ void PWR_update(int *_dirty, int *_show_setting, PWR_callback_t before_sleep, PW
 			was_muted = muted;
 			show_setting = 2;
 			setting_shown_at = now;
+			if (muted && CFG_getFnSwitchLock())
+				pwr.requested_sleep = 1;
 		}
 	}
 
@@ -4408,9 +4421,28 @@ static void PWR_waitForWake(void)
 {
 	uint32_t sleep_ticks = SDL_GetTicks();
 	int deep_sleep_attempts = 0;
+	int was_locked = 0;
 	const int sleepDelay = CFG_getSuspendTimeoutSecs() * 1000;
-	while (!PAD_wake())
+	while (1)
 	{
+		// always drain wake events so a press made while locked doesn't
+		// wake the device later
+		int wake = PAD_wake();
+		if (PWR_fnSwitchLocked())
+		{
+			// locked: ignore the power button and any wake request
+			pwr.requested_wake = 0;
+			was_locked = 1;
+		}
+		else if (was_locked)
+		{
+			// switch flipped off while asleep: wake up
+			break;
+		}
+		else if (wake)
+		{
+			break;
+		}
 		if (pwr.requested_wake)
 		{
 			pwr.requested_wake = 0;
@@ -4432,6 +4464,14 @@ static void PWR_waitForWake(void)
 					int ret = PWR_deepSleep();
 					if (ret == 0)
 					{
+						if (PWR_fnSwitchLocked())
+						{
+							// woken from deep sleep (e.g. power button pressed in a
+							// pocket) while still locked: go straight back to sleep
+							LOG_info("fn switch lock engaged, returning to deep sleep\n");
+							sleep_ticks = SDL_GetTicks() - sleepDelay;
+							continue;
+						}
 						return;
 					}
 					else

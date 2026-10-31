@@ -162,6 +162,9 @@ typedef struct
 	// Haptic
 	bool haptics;
 
+	// Fn switch acts as a sleep lock
+	bool fnSwitchLock;
+
 	// Networking
 	bool ntp;
 	int currentTimezone; // index of timezone in tz database
@@ -232,6 +235,7 @@ typedef struct
 #define CFG_DEFAULT_POWEROFFPROTECTION true
 #define CFG_DEFAULT_KEEPAWAKEWHENUSB false
 #define CFG_DEFAULT_HAPTICS false
+#define CFG_DEFAULT_FNSWITCHLOCK false
 #define CFG_DEFAULT_ROMSUSEFOLDERBACKGROUND true
 #define CFG_DEFAULT_SAVEFORMAT SAVE_FORMAT_SAV
 #define CFG_DEFAULT_STATEFORMAT STATE_FORMAT_SAV
@@ -370,6 +374,10 @@ void CFG_setGameSwitcherScaling(int enumValue);
 // Enable/disable haptics.
 bool CFG_getHaptics(void);
 void CFG_setHaptics(bool enable);
+// When enabled, flipping the Fn switch on puts the device to sleep and
+// keeps it asleep (ignoring the power button) until the switch is flipped off.
+bool CFG_getFnSwitchLock(void);
+void CFG_setFnSwitchLock(bool enable);
 // Save format to use for libretro cores
 // 0 - .sav
 // 1 - .srm (compressed rzip)

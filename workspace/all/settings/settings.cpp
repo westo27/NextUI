@@ -850,6 +850,13 @@ int main(int argc, char *argv[])
                     SetMuteEmulatesJoystick(0);
                 }});
         }
+        if(deviceInfo.hasMuteToggle()){
+            muteItems.push_back(
+                new MenuItem{ListItemType::Generic, "Lock device when toggled", "Sleep when the switch is toggled on and stay asleep\n(power button ignored) until it is toggled off.", {false, true}, on_off,
+                []() -> std::any { return CFG_getFnSwitchLock(); },
+                [](const std::any &value) { CFG_setFnSwitchLock(std::any_cast<bool>(value)); },
+                []() { CFG_setFnSwitchLock(CFG_DEFAULT_FNSWITCHLOCK);}});
+        }
         muteItems.push_back(new MenuItem{ListItemType::Button, "Reset to defaults", "Resets all options in this menu to their default values.", ResetCurrentMenu});
 
         auto notificationsMenu = new MenuList(MenuItemType::Fixed, "Notifications",

@@ -73,6 +73,7 @@ void CFG_defaults(NextUISettings *cfg)
         .keepAwakeWhenUSB = CFG_DEFAULT_KEEPAWAKEWHENUSB,
 
         .haptics = CFG_DEFAULT_HAPTICS,
+        .fnSwitchLock = CFG_DEFAULT_FNSWITCHLOCK,
         .romsUseFolderBackground = CFG_DEFAULT_ROMSUSEFOLDERBACKGROUND,
         .saveFormat = CFG_DEFAULT_SAVEFORMAT,
         .stateFormat = CFG_DEFAULT_STATEFORMAT,
@@ -319,6 +320,11 @@ void CFG_init(FontLoad_callback_t cb, ColorSet_callback_t ccb)
             if (sscanf(line, "haptics=%i", &temp_value) == 1)
             {
                 CFG_setHaptics((bool)temp_value);
+                continue;
+            }
+            if (sscanf(line, "fnSwitchLock=%i", &temp_value) == 1)
+            {
+                CFG_setFnSwitchLock((bool)temp_value);
                 continue;
             }
             if (sscanf(line, "romfolderbg=%i", &temp_value) == 1)
@@ -889,6 +895,17 @@ bool CFG_getHaptics(void)
 void CFG_setHaptics(bool enable)
 {
     settings.haptics = enable;
+    CFG_sync();
+}
+
+bool CFG_getFnSwitchLock(void)
+{
+    return settings.fnSwitchLock;
+}
+
+void CFG_setFnSwitchLock(bool enable)
+{
+    settings.fnSwitchLock = enable;
     CFG_sync();
 }
 
@@ -1650,6 +1667,7 @@ void CFG_sync(void)
     fprintf(file, "keepAwakeWhenUSB=%i\n", settings.keepAwakeWhenUSB);
     fprintf(file, "switcherscale=%i\n", settings.gameSwitcherScaling);
     fprintf(file, "haptics=%i\n", settings.haptics);
+    fprintf(file, "fnSwitchLock=%i\n", settings.fnSwitchLock);
     fprintf(file, "romfolderbg=%i\n", settings.romsUseFolderBackground);
     fprintf(file, "saveFormat=%i\n", settings.saveFormat);
     fprintf(file, "stateFormat=%i\n", settings.stateFormat);
@@ -1725,6 +1743,7 @@ void CFG_print(void)
     printf("\t\"keepAwakeWhenUSB\": %i,\n", settings.keepAwakeWhenUSB);
     printf("\t\"switcherscale\": %i,\n", settings.gameSwitcherScaling);
     printf("\t\"haptics\": %i,\n", settings.haptics);
+    printf("\t\"fnSwitchLock\": %i,\n", settings.fnSwitchLock);
     printf("\t\"romfolderbg\": %i,\n", settings.romsUseFolderBackground);
     printf("\t\"saveFormat\": %i,\n", settings.saveFormat);
     printf("\t\"stateFormat\": %i,\n", settings.stateFormat);

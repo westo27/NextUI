@@ -805,6 +805,17 @@ void PLAT_setNetworkTimeSync(bool on) {
 
 /////////////////////////
 
+// Read the Fn switch straight from its GPIO: keymon (which normally mirrors
+// it into msettings) is SIGSTOPped while the device sleeps.
+int PLAT_isFnSwitchEngaged(void) {
+	char *path = "/sys/class/gpio/gpio363/value";
+	if (!exists(path))
+		return InitializedSettings() ? GetMute() : 0;
+	return getInt(path) == 1;
+}
+
+/////////////////////////
+
 // We use the generic video implementation here
 #include "generic_video.c"
 

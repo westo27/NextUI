@@ -743,6 +743,9 @@ void PLAT_getBatteryStatusFine(int* is_charging, int* charge); // 0,1 and 0-100
 int PLAT_isUSBConnected(void); // 1 if the device is configured as a USB gadget on a host, else 0
 void PLAT_enableBacklight(int enable);
 int PLAT_supportsDeepSleep(void);
+// Returns 1 if the hardware Fn/mute switch is engaged. Read directly from
+// hardware where possible since keymon is stopped while asleep.
+int PLAT_isFnSwitchEngaged(void);
 int PLAT_deepSleep(void);
 void PLAT_powerOff(int reboot);
 
