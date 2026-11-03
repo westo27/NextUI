@@ -2281,6 +2281,25 @@ int GFX_blitHardwareIndicator(SDL_Surface *dst, int x, int y, IndicatorType indi
 	
 	// Draw the pill background
 	GFX_blitPillLight(ASSET_WHITE_PILL, dst, &(SDL_Rect){ox, oy, ow, SCALE1(PILL_SIZE)});
+
+	if (indicator_type == INDICATOR_LOCK)
+	{
+		SDL_Rect lock_rect;
+		GFX_assetRect(ASSET_LOCK, &lock_rect);
+		int lx = ox + (SCALE1(PILL_SIZE) - lock_rect.w) / 2;
+		int ly = oy + (SCALE1(PILL_SIZE) - lock_rect.h) / 2;
+		GFX_blitAssetColor(ASSET_LOCK, NULL, dst, &(SDL_Rect){lx, ly}, THEME_COLOR6_255);
+
+		SDL_Surface *text = TTF_RenderUTF8_Blended(font.small, "Locked", uintToColour(THEME_COLOR6_255));
+		if (text)
+		{
+			int tx = ox + SCALE1(PILL_SIZE);
+			int ty = oy + (SCALE1(PILL_SIZE) - text->h) / 2;
+			SDL_BlitSurface(text, NULL, dst, &(SDL_Rect){tx, ty});
+			SDL_FreeSurface(text);
+		}
+		return ow;
+	}
 	
 	// Determine which setting to display
 	if (indicator_type == INDICATOR_BRIGHTNESS)
@@ -2498,6 +2517,8 @@ int GFX_blitHardwareGroup(SDL_Surface *dst, int show_setting)
 void GFX_blitHardwareHints(SDL_Surface *dst, int show_setting)
 {
 
+	if (show_setting == INDICATOR_LOCK)
+		return; // nothing can be pressed while locked
 	if (show_setting == 1)
 		GFX_blitButtonGroup((char *[]){BRIGHTNESS_BUTTON_LABEL, "BRIGHTNESS", NULL}, 0, dst, 0);
 	else if (show_setting == 3)
@@ -3374,6 +3395,31 @@ void PAD_reset(void)
 	pad.just_released = BTN_NONE;
 	pad.just_repeated = BTN_NONE;
 }
+
+static uint32_t pad_locked_presses = 0;
+int PAD_isLocked(void)
+{
+	return CFG_getFnSwitchLock() && InitializedSettings() && GetMute();
+}
+uint32_t PAD_lockedPressCount(void)
+{
+	return pad_locked_presses;
+}
+void PAD_poll(void)
+{
+	PLAT_pollInput();
+	if (!PAD_isLocked())
+		return;
+
+	// hold switch engaged: swallow everything, but remember that a button
+	// was pressed so the UI can flash the lock indicator
+	if (pad.just_pressed != BTN_NONE)
+		pad_locked_presses++;
+	PAD_reset();
+	pad.laxis.x = pad.laxis.y = 0;
+	pad.raxis.x = pad.raxis.y = 0;
+}
+
 FALLBACK_IMPLEMENTATION void PLAT_pollInput(void)
 {
 	// reset transient state
@@ -3817,7 +3863,7 @@ FALLBACK_IMPLEMENTATION int PLAT_isFnSwitchEngaged(void)
 	return InitializedSettings() ? GetMute() : 0;
 }
 
-// Fn switch sleep lock: switch on means the device should be asleep
+// Fn switch hold lock, read from hardware (safe to call while asleep)
 static int PWR_fnSwitchLocked(void)
 {
 	return CFG_getFnSwitchLock() && PLAT_isFnSwitchEngaged();
@@ -4227,7 +4273,16 @@ void PWR_update(int *_dirty, int *_show_setting, PWR_callback_t before_sleep, PW
 
 	int delay_settings = BTN_MOD_BRIGHTNESS == BTN_MENU; // when both volume and brighness require a modifier hide settings as soon as it is released
 #define SETTING_DELAY 500
-	if (show_setting && (now - setting_shown_at >= SETTING_DELAY || !delay_settings) && !PAD_isPressed(BTN_MOD_VOLUME) && !PAD_isPressed(BTN_MOD_BRIGHTNESS) && !PAD_isPressed(BTN_MOD_COLORTEMP))
+#define LOCK_INDICATOR_DELAY 1000
+	if (show_setting == INDICATOR_LOCK)
+	{
+		if (now - setting_shown_at >= LOCK_INDICATOR_DELAY)
+		{
+			show_setting = 0;
+			dirty = 1;
+		}
+	}
+	else if (show_setting && (now - setting_shown_at >= SETTING_DELAY || !delay_settings) && !PAD_isPressed(BTN_MOD_VOLUME) && !PAD_isPressed(BTN_MOD_BRIGHTNESS) && !PAD_isPressed(BTN_MOD_COLORTEMP))
 	{
 		show_setting = 0;
 		dirty = 1;
@@ -4266,10 +4321,16 @@ void PWR_update(int *_dirty, int *_show_setting, PWR_callback_t before_sleep, PW
 		if (muted != was_muted)
 		{
 			was_muted = muted;
-			show_setting = 2;
+			show_setting = (muted && CFG_getFnSwitchLock()) ? INDICATOR_LOCK : INDICATOR_VOLUME;
 			setting_shown_at = now;
-			if (muted && CFG_getFnSwitchLock())
-				pwr.requested_sleep = 1;
+		}
+
+		static uint32_t seen_locked_presses = 0;
+		if (PAD_lockedPressCount() != seen_locked_presses)
+		{
+			seen_locked_presses = PAD_lockedPressCount();
+			show_setting = INDICATOR_LOCK;
+			setting_shown_at = now;
 		}
 	}
 
@@ -4421,7 +4482,6 @@ static void PWR_waitForWake(void)
 {
 	uint32_t sleep_ticks = SDL_GetTicks();
 	int deep_sleep_attempts = 0;
-	int was_locked = 0;
 	const int sleepDelay = CFG_getSuspendTimeoutSecs() * 1000;
 	while (1)
 	{
@@ -4430,14 +4490,10 @@ static void PWR_waitForWake(void)
 		int wake = PAD_wake();
 		if (PWR_fnSwitchLocked())
 		{
-			// locked: ignore the power button and any wake request
+			// hold switch engaged: ignore the power button and any wake
+			// request. Flipping it off doesn't wake the device either,
+			// press power afterwards like an iPod.
 			pwr.requested_wake = 0;
-			was_locked = 1;
-		}
-		else if (was_locked)
-		{
-			// switch flipped off while asleep: wake up
-			break;
 		}
 		else if (wake)
 		{

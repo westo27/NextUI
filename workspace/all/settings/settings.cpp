@@ -852,7 +852,7 @@ int main(int argc, char *argv[])
         }
         if(deviceInfo.hasMuteToggle()){
             muteItems.push_back(
-                new MenuItem{ListItemType::Generic, "Lock device when toggled", "Sleep when the switch is toggled on and stay asleep\n(power button ignored) until it is toggled off.", {false, true}, on_off,
+                new MenuItem{ListItemType::Generic, "Lock device when toggled", "Works like an iPod hold switch: all buttons\nare locked while the switch is on.", {false, true}, on_off,
                 []() -> std::any { return CFG_getFnSwitchLock(); },
                 [](const std::any &value) { CFG_setFnSwitchLock(std::any_cast<bool>(value)); },
                 []() { CFG_setFnSwitchLock(CFG_DEFAULT_FNSWITCHLOCK);}});

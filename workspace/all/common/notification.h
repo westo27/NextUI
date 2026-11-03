@@ -37,6 +37,7 @@ typedef enum {
     SYSTEM_INDICATOR_BRIGHTNESS = 1,
     SYSTEM_INDICATOR_VOLUME = 2,
     SYSTEM_INDICATOR_COLORTEMP = 3,
+    SYSTEM_INDICATOR_LOCK = 4,
 } SystemIndicatorType;
 
 typedef struct {

@@ -413,6 +413,7 @@ typedef enum {
 	INDICATOR_BRIGHTNESS = 1,
 	INDICATOR_VOLUME = 2,
 	INDICATOR_COLORTEMP = 3,
+	INDICATOR_LOCK = 4,
 } IndicatorType;
 
 /**
@@ -523,12 +524,16 @@ extern PAD_Context pad;
 #define PAD_init PLAT_initInput
 #define PAD_quit PLAT_quitInput
 #define PAD_update PLAT_updateInput
-#define PAD_poll PLAT_pollInput
 #define PAD_wake PLAT_shouldWake
 
 void PAD_setAnalog(int neg, int pos, int value, int repeat_at); // internal
 
 void PAD_reset(void);
+// Polls input. While the Fn switch lock is engaged all input is swallowed
+// (like an iPod hold switch) and PAD_lockedPressCount() is incremented.
+void PAD_poll(void);
+int PAD_isLocked(void);
+uint32_t PAD_lockedPressCount(void);
 int PAD_anyJustPressed(void);
 int PAD_anyPressed(void);
 int PAD_anyJustReleased(void);

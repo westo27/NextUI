@@ -241,7 +241,8 @@ void Notification_update(uint32_t now) {
     // Update system indicator timeout
     if (system_indicator_type != SYSTEM_INDICATOR_NONE) {
         uint32_t elapsed = now - system_indicator_start_time;
-        if (elapsed >= SYSTEM_INDICATOR_DURATION_MS) {
+        uint32_t duration = system_indicator_type == SYSTEM_INDICATOR_LOCK ? 1000 : SYSTEM_INDICATOR_DURATION_MS;
+        if (elapsed >= duration) {
             system_indicator_type = SYSTEM_INDICATOR_NONE;
             system_indicator_dirty = 1;
         }

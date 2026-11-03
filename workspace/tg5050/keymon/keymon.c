@@ -58,21 +58,45 @@ static int getInt(char* path) {
 	return i;
 }
 
+// hold switch: when "Lock device when toggled" is enabled in settings,
+// the Fn switch also locks the volume/brightness keys handled here
+#define SETTINGS_PATH "/mnt/SDCARD/.userdata/shared/minuisettings.txt"
+static volatile int hold_locked = 0;
+static int holdLockEnabled(void) {
+	FILE *file = fopen(SETTINGS_PATH, "r");
+	if (!file) return 0;
+	char line[256];
+	int value = 0;
+	while (fgets(line, sizeof(line), file)) {
+		if (sscanf(line, "fnSwitchLock=%i", &value) == 1) break;
+	}
+	fclose(file);
+	return value == 1;
+}
+
 static pthread_t mute_pt;
 static void* watchMute(void *arg) {
 	int is_muted,was_muted;
 	
 	is_muted = was_muted = getInt(MUTE_STATE_PATH);
 	SetMute(is_muted);
+	hold_locked = is_muted == 1 && holdLockEnabled();
+	int ticks = 0;
 	
 	while(!quit) {
 		usleep(200000); // 5 times per second
 		
 		is_muted = getInt(MUTE_STATE_PATH);
+		// recheck the setting about once a second while the switch is on
+		if (is_muted == 1 && ++ticks % 5 == 0)
+			hold_locked = holdLockEnabled();
+		else if (is_muted == 0)
+			hold_locked = 0;
 		// swallow mute val -1 on shutdown
 		if (is_muted >= 0 && was_muted!=is_muted) {
 			was_muted = is_muted;
 			SetMute(is_muted);
+			hold_locked = is_muted == 1 && holdLockEnabled();
 			if (GetMute()) {
 				// tmp solution
 				system("echo 32768 > /sys/class/motor/level");
@@ -165,7 +189,7 @@ int main (int argc, char *argv[]) {
 			}
 		}
 		
-		if (ignore) {
+		if (ignore || hold_locked) {
 			menu_pressed = 0;
 			menu2_pressed = 0;
 			up_pressed = up_just_pressed = 0;

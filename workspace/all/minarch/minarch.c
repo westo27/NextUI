@@ -309,6 +309,15 @@ int main(int argc , char* argv[]) {
 						Notification_showSystemIndicator(SYSTEM_INDICATOR_COLORTEMP);
 				}
 			}
+
+			// hold switch: show the padlock when it's engaged or a button is pressed
+			static int last_locked = -1;
+			static uint32_t last_locked_presses = 0;
+			int locked = PAD_isLocked();
+			if (last_locked != -1 && locked && (!last_locked || PAD_lockedPressCount() != last_locked_presses))
+				Notification_showSystemIndicator(SYSTEM_INDICATOR_LOCK);
+			last_locked = locked;
+			last_locked_presses = PAD_lockedPressCount();
 		}
 		
 		Notification_renderToLayer(5);  // Always call - handles cleanup when inactive
